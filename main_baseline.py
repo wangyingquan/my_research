@@ -81,7 +81,7 @@ def main():
     model = models.init_model(name=cfg.MODEL.ARCH, num_classes=625, pretrain_choice=cfg.MODEL.PRETRAIN_CHOICE,
                               last_stride=cfg.MODEL.LAST_STRIDE, model_name=cfg.MODEL.NAME,
                               model_path=cfg.MODEL.PRETRAIN_PATH,global_refine_method = cfg.MODEL.GLOBAL_REFINE_METHOD,
-                              local_refine_method = cfg.MODEL.LOCAL_REFINE_METHOD)
+                              local_refine_method = cfg.MODEL.LOCAL_REFINE_METHOD, seq_len = cfg.DATASETS.SEQ_LEN)
 
     print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters()) / 1000000.0))
 

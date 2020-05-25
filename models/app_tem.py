@@ -50,7 +50,7 @@ def weight_init_classifier(m):
 
 class app_tem(nn.Module):
 
-    def __init__(self, num_classes,  last_stride, model_path, model_name, pretrain_choice, global_refine_method, local_refine_method):
+    def __init__(self, num_classes,  last_stride, model_path, model_name, pretrain_choice, global_refine_method, local_refine_method, seq_len):
         super(app_tem, self).__init__()
         if model_name == 'resnet50':
             self.in_planes = 2048
@@ -60,6 +60,7 @@ class app_tem(nn.Module):
             init_pretrained_weight(self.base,model_urls[model_name])
             print('Loading pretrained ImageNet model......')
 
+        self.seq_len = seq_len
         self.global_refine_method = global_refine_method
         self.local_refine_method = local_refine_method
         self.num_classes = num_classes
@@ -75,8 +76,20 @@ class app_tem(nn.Module):
         self.compact_conv_3 = nn.Conv2d(in_channels = 512, out_channels = 2048, kernel_size = 1, stride = 1)
         self.bn3 = nn.BatchNorm2d(2048)
 
-        self.temporal_lstm = nn.LSTM(input_size = 2048, hidden_size = 1024,num_layers = 1, bidirectional = True)
-        self.temporal_conv = nn.Conv2d(in_channels = 3, out_channels = 3, kernel_size = 1, stride = 1, padding = 1)
+        #temporal pool
+        self.temporal_pool_conv1 = nn.Conv2d(in_channels = seq_len - 1, out_channels = seq_len - 1, kernel_size = 1)
+        self.temporal_pool_bn1 = nn.BatchNorm2d(seq_len - 1)
+        self.temporal_pool_conv2 = nn.Conv2d(in_channels = seq_len - 1, out_channels = seq_len - 1, kernel_size = 3, padding = 1)    #Other try is using padding = 0
+        self.temporal_pool_bn2 = nn.BatchNorm2d(seq_len - 1)
+        self.temporal_pool_conv3 = nn.Conv2d(in_channels = seq_len - 1, out_channels = 1, kernel_size = 1)
+
+        #channel pool
+        self.channel_pool_conv1 = nn.Conv2d(in_channels = 2048, out_channels = 512, kernel_size = 1, stride = 1)
+        self.channel_pool_bn1 = nn.BatchNorm2d(512)
+        self.channle_pool_conv2 = nn.Conv2d(in_channels = 512, out_channels = 512, kernel_size = 3, stride = 1, padding = 1)     # Other try is using padding = 0
+        self.channel_pool_bn2 = nn.BatchNorm2d(512)
+        self.channel_pool_conv3 = nn.Conv2d(in_channels = 512, out_channels = 1, kernel_size = 1, stride = 1)
+
         self.cat_fc = nn.Linear(in_features = 4096, out_features = 2048)
 
         self.appearance_bottleneck = nn.BatchNorm1d(2048)
@@ -91,7 +104,7 @@ class app_tem(nn.Module):
         self.sum_classifier = nn.Linear(2048, self.num_classes, bias=False)
         self.sum_bottleneck.bias.requires_grad_(False)
 
-        self.temporal_conv.apply(weights_init_kaiming)
+        # self.temporal_conv.apply(weights_init_kaiming)
         self.compact_conv_1.apply(weights_init_kaiming)
         self.compact_conv_2.apply(weights_init_kaiming)
         self.compact_conv_3.apply(weights_init_kaiming)
@@ -243,6 +256,34 @@ class app_tem(nn.Module):
 
         return gap_feature_map
 
+    def temporal_pool(self, gap_feature_map):
+        b, t, c, w, h = gap_feature_map.size()
+        tem_gap_feature = gap_feature_map.permute(0, 2, 1, 3, 4)
+        tem_gap_feature = tem_gap_feature.reshape(b * c, t, w, h)
+        channel_gap_feature = gap_feature_map.view(b * t, c, w, h)
+
+        #temporal_pool block
+        tem_gap_feature = self.temporal_pool_conv1(tem_gap_feature)
+        tem_gap_feature = self.temporal_pool_bn1(tem_gap_feature)
+        tem_gap_feature = self.temporal_pool_conv2(tem_gap_feature)
+        tem_gap_feature = self.temporal_pool_bn2(tem_gap_feature)
+        tem_gap_feature = self.temporal_pool_conv3(tem_gap_feature)
+        tem_gap_feature = torch.relu(tem_gap_feature)              #(32x2048, 1, 16, 8)
+        tem_gap_feature = tem_gap_feature.view(b, c, -1, w, h).permute(0, 2, 1, 3, 4)
+
+        #channel_pool block
+        channel_gap_feature = self.channel_pool_conv1(channel_gap_feature)
+        channel_gap_feature = self.channel_pool_bn1(channel_gap_feature)
+        channel_gap_feature = self.channle_pool_conv2(channel_gap_feature)
+        channel_gap_feature = self.channel_pool_bn2(channel_gap_feature)
+        channel_gap_feature = self.channel_pool_conv3(channel_gap_feature)
+        channel_gap_feature = torch.relu(channel_gap_feature)     #(32x3, 1, 16, 8)
+        channel_gap_feature = channel_gap_feature.view(b, t, -1, w, h)
+
+        gap_feature_map = torch.mul(tem_gap_feature, channel_gap_feature)  #(32, 3, 2048, 16, 8)
+        gap_feature_vector = self.feat_pool(gap_feature_map.view(b*t, c, w, h))  #(32x3, 2048)
+        return gap_feature_vector
+
     def temporal(self, feat_map):
         b, t, c, h, w = feat_map.size()
         feat_map_clone = feat_map.detach()
@@ -253,20 +294,13 @@ class app_tem(nn.Module):
             gap_feat_map.append(gap_feat)
 
         gap_feat_map = torch.stack(gap_feat_map, 1)
-        gap_feat_map = gap_feat_map ** 2
+        gap_feat_map = gap_feat_map ** 2                                         #this way can be changed
         gap_feat_map = gap_feat_map.view(b * (t - 1), c, h, w)
-        gap_feat_map = self.temporal_block(gap_feat_map)  #(96, 2048, 16,  8)
+        gap_feat_map = self.temporal_block(gap_feat_map)                         #(96, 2048, 16,  8)
 
         gap_feat_map = gap_feat_map.view(b, t - 1, c, h, w)                      #(32, 3, 2048, 16, 8)
-        gap_feat_map = gap_feat_map.permute(0, 2, 1, 3, 4)                       #(32, 2048, 3, 16, 8)
-        gap_feat_map = self.temporal_conv(gap_feat_map.view(b * c, t-1, w, h))   #(32x2048, 3, 16, 8)
-
-        gap_feat_vector = self.feat_pool(gap_feat_map)                           #(32x2048, 3, 1, 1)
-        gap_feat_vector = gap_feat_vector.view(b, c, t-1)
-
-        temporal_feat_vector , _ = self.temporal_lstm(gap_feat_vector)
-        temporal_feat_vector = temporal_feat_vector.permute(1, 0, 2)
-        temporal_feat_vector = torch.mean(temporal_feat_vector, 1)
+        gap_feat_vector = self.temporal_pool(gap_feat_map).view(b, -1, c)        #(32, 3, 2048)
+        temporal_feat_vector = torch.mean(gap_feat_vector, 1)
 
         return temporal_feat_vector
 
