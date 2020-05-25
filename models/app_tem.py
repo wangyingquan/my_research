@@ -104,10 +104,24 @@ class app_tem(nn.Module):
         self.sum_classifier = nn.Linear(2048, self.num_classes, bias=False)
         self.sum_bottleneck.bias.requires_grad_(False)
 
-        # self.temporal_conv.apply(weights_init_kaiming)
         self.compact_conv_1.apply(weights_init_kaiming)
+        self.bn1.apply(weights_init_kaiming)
         self.compact_conv_2.apply(weights_init_kaiming)
+        self.bn2.apply(weights_init_kaiming)
         self.compact_conv_3.apply(weights_init_kaiming)
+        self.bn3.apply(weights_init_kaiming)
+
+        self.channel_pool_conv3.apply(weights_init_kaiming)
+        self.channel_pool_bn2.apply(weights_init_kaiming)
+        self.channle_pool_conv2.apply(weights_init_kaiming)
+        self.channel_pool_bn1.apply(weights_init_kaiming)
+        self.channel_pool_conv1.apply(weights_init_kaiming)
+
+        self.temporal_pool_conv3.apply(weights_init_kaiming)
+        self.temporal_pool_bn2.apply(weights_init_kaiming)
+        self.temporal_pool_conv2.apply(weights_init_kaiming)
+        self.temporal_pool_bn1.apply(weights_init_kaiming)
+        self.temporal_pool_conv1.apply(weights_init_kaiming)
 
         self.appearance_bottleneck.apply(weights_init_kaiming)
         self.temporal_classifier.apply(weight_init_classifier)
@@ -262,26 +276,33 @@ class app_tem(nn.Module):
         tem_gap_feature = tem_gap_feature.reshape(b * c, t, w, h)
         channel_gap_feature = gap_feature_map.view(b * t, c, w, h)
 
+
         #temporal_pool block
         tem_gap_feature = self.temporal_pool_conv1(tem_gap_feature)
         tem_gap_feature = self.temporal_pool_bn1(tem_gap_feature)
+
         tem_gap_feature = self.temporal_pool_conv2(tem_gap_feature)
         tem_gap_feature = self.temporal_pool_bn2(tem_gap_feature)
+
         tem_gap_feature = self.temporal_pool_conv3(tem_gap_feature)
         tem_gap_feature = torch.relu(tem_gap_feature)              #(32x2048, 1, 16, 8)
         tem_gap_feature = tem_gap_feature.view(b, c, -1, w, h).permute(0, 2, 1, 3, 4)
 
+
         #channel_pool block
         channel_gap_feature = self.channel_pool_conv1(channel_gap_feature)
         channel_gap_feature = self.channel_pool_bn1(channel_gap_feature)
+
         channel_gap_feature = self.channle_pool_conv2(channel_gap_feature)
         channel_gap_feature = self.channel_pool_bn2(channel_gap_feature)
+
         channel_gap_feature = self.channel_pool_conv3(channel_gap_feature)
         channel_gap_feature = torch.relu(channel_gap_feature)     #(32x3, 1, 16, 8)
         channel_gap_feature = channel_gap_feature.view(b, t, -1, w, h)
 
         gap_feature_map = torch.mul(tem_gap_feature, channel_gap_feature)  #(32, 3, 2048, 16, 8)
         gap_feature_vector = self.feat_pool(gap_feature_map.view(b*t, c, w, h))  #(32x3, 2048)
+
         return gap_feature_vector
 
     def temporal(self, feat_map):

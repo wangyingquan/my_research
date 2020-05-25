@@ -239,7 +239,7 @@ def test(model, queryloader, galleryloader, pool, use_gpu, ranks=[1, 5, 10, 20])
             b, n, s, c, h, w = imgs.size()
             assert (b == 1)
             imgs = imgs.view(b * n, s, c, h, w)
-            features = model(imgs)
+            features, pids, camids = model(imgs, pids, camids)
             del imgs
             q_pids.extend(pids)
             q_camids.extend(camids)
@@ -265,11 +265,13 @@ def test(model, queryloader, galleryloader, pool, use_gpu, ranks=[1, 5, 10, 20])
             gallery_pathes.append(img_path[0])
             if use_gpu:
                 imgs = imgs.cuda()
+                pids = pids.cuda()
+                camids = camids.cuda()
 
             b, n, s, c, h, w = imgs.size()
             imgs = imgs.view(b * n, s, c, h, w)
             assert (b == 1)
-            features = model(imgs)
+            features, pids, camids = model(imgs, pids, camids)
             features = features.data.cpu()
             features = features.view(n, -1)
             if pool == 'avg':
