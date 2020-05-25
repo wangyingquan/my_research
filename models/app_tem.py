@@ -75,9 +75,8 @@ class app_tem(nn.Module):
         self.compact_conv_3 = nn.Conv2d(in_channels = 512, out_channels = 2048, kernel_size = 1, stride = 1)
         self.bn3 = nn.BatchNorm2d(2048)
 
-        self.temporal_lstm = nn.LSTM(input_size = 2048, hidden_size = 1024,
-                                     num_layers = 1, bidirectional = True)
-
+        self.temporal_lstm = nn.LSTM(input_size = 2048, hidden_size = 1024,num_layers = 1, bidirectional = True)
+        self.temporal_conv = nn.Conv2d(in_channels = 3, out_channels = 3, kernel_size = 1, stride = 1, padding = 1)
         self.cat_fc = nn.Linear(in_features = 4096, out_features = 2048)
 
         self.appearance_bottleneck = nn.BatchNorm1d(2048)
@@ -92,6 +91,7 @@ class app_tem(nn.Module):
         self.sum_classifier = nn.Linear(2048, self.num_classes, bias=False)
         self.sum_bottleneck.bias.requires_grad_(False)
 
+        self.temporal_conv.apply(weights_init_kaiming)
         self.compact_conv_1.apply(weights_init_kaiming)
         self.compact_conv_2.apply(weights_init_kaiming)
         self.compact_conv_3.apply(weights_init_kaiming)
@@ -255,11 +255,14 @@ class app_tem(nn.Module):
         gap_feat_map = torch.stack(gap_feat_map, 1)
         gap_feat_map = gap_feat_map ** 2
         gap_feat_map = gap_feat_map.view(b * (t - 1), c, h, w)
-        gap_feat_map = self.temporal_block(gap_feat_map)  #(96, 2048, 16, 8)
+        gap_feat_map = self.temporal_block(gap_feat_map)  #(96, 2048, 16,  8)
 
-        gap_feat_map = gap_feat_map.view(b, t - 1, c, h, w) #(32, 3, 2048, 16, 8)
-        gap_feat_map = F.normalize(gap_feat_map, 2, dim = 1).view(b * (t - 1), c, w, h)
-        gap_feat_vector = self.feat_pool(gap_feat_map).view(b, t - 1, -1).permute(1, 0, 2)
+        gap_feat_map = gap_feat_map.view(b, t - 1, c, h, w)                      #(32, 3, 2048, 16, 8)
+        gap_feat_map = gap_feat_map.permute(0, 2, 1, 3, 4)                       #(32, 2048, 3, 16, 8)
+        gap_feat_map = self.temporal_conv(gap_feat_map.view(b * c, t-1, w, h))   #(32x2048, 3, 16, 8)
+
+        gap_feat_vector = self.feat_pool(gap_feat_map)                           #(32x2048, 3, 1, 1)
+        gap_feat_vector = gap_feat_vector.view(b, c, t-1)
 
         temporal_feat_vector , _ = self.temporal_lstm(gap_feat_vector)
         temporal_feat_vector = temporal_feat_vector.permute(1, 0, 2)
