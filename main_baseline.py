@@ -67,7 +67,7 @@ def main():
 
     if use_gpu:
         print("Currently using GPU {}".format(cfg.MODEL.DEVICE_ID))
-        cudnn.benchmark = True
+        cudnn.benchmark = False
         torch.cuda.manual_seed_all(cfg.RANDOM_SEED)
     else:
         print("Currently using CPU (GPU is highly recommended)")
@@ -104,8 +104,6 @@ def main():
 
     pin_memory = True if use_gpu else False
 
-    # cfg.DATALOADER.NUM_WORKERS = 0
-
     trainloader = DataLoader(
         VideoDataset(dataset.train, seq_len=cfg.DATASETS.SEQ_LEN, sample=cfg.DATASETS.TRAIN_SAMPLE_METHOD, transform=transform_train,
                      dataset_name=cfg.DATASETS.NAME),
@@ -134,6 +132,9 @@ def main():
         if cfg.SOLVER.FP_16:
             model = apex.parallel.convert_syncbn_model(model)
         model.cuda()
+
+    # model = nn.DataParallel(model)
+    # model.cuda()
 
 
     start_time = time.time()
