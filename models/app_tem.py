@@ -68,14 +68,16 @@ class app_tem(nn.Module):
         self.feat_pool = nn.AdaptiveAvgPool2d((1,1))
         self.local_part_avgpool = nn.AdaptiveAvgPool2d((self.part_num,1))
         self.feature_map_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
+        self.relu = nn.ReLU(inplace=True)
 
         #temporal block
-        self.compact_conv_1 = nn.Conv2d(in_channels = 2048, out_channels = 512, kernel_size = 1, stride = 1)
-        self.bn1 = nn.BatchNorm2d(512)
-        self.compact_conv_2 = nn.Conv2d(in_channels = 512, out_channels = 512, kernel_size = 3, stride = 1, padding = 1)
-        self.bn2 = nn.BatchNorm2d(512)
-        self.compact_conv_3 = nn.Conv2d(in_channels = 512, out_channels = 2048, kernel_size = 1, stride = 1)
-        self.bn3 = nn.BatchNorm2d(2048)
+        self.plance = 512
+        self.compact_conv_1 = nn.Conv2d(in_channels = self.in_planes, out_channels = self.plance, kernel_size = 1, stride = 1)
+        self.bn1 = nn.BatchNorm2d(self.plance)
+        self.compact_conv_2 = nn.Conv2d(in_channels = self.plance, out_channels = self.plance, kernel_size = 3, stride = 1, padding = 1)
+        self.bn2 = nn.BatchNorm2d(self.plance)
+        self.compact_conv_3 = nn.Conv2d(in_channels = self.plance, out_channels = self.in_planes, kernel_size = 1, stride = 1)
+        self.bn3 = nn.BatchNorm2d(self.plance * 4)
 
         #temporal pool
         self.temporal_pool_conv1 = nn.Conv2d(in_channels = seq_len - 1, out_channels = seq_len - 1, kernel_size = 1)
@@ -83,22 +85,22 @@ class app_tem(nn.Module):
         self.temporal_pool_conv3 = nn.Conv2d(in_channels = seq_len - 1, out_channels = 1, kernel_size = 1)
 
         #channel pool
-        self.channel_pool_conv1 = nn.Conv2d(in_channels = 2048, out_channels = 512, kernel_size = 1, stride = 1)
-        self.channle_pool_conv2 = nn.Conv2d(in_channels = 512, out_channels = 512, kernel_size = 3, stride = 1, padding = 1)     # Other try is using padding = 0
-        self.channel_pool_conv3 = nn.Conv2d(in_channels = 512, out_channels = 1, kernel_size = 1, stride = 1)
+        self.channel_pool_conv1 = nn.Conv2d(in_channels = self.in_planes, out_channels = self.plance, kernel_size = 1, stride = 1)
+        self.channle_pool_conv2 = nn.Conv2d(in_channels = self.plance, out_channels = self.plance, kernel_size = 3, stride = 1, padding = 1)     # Other try is using padding = 0
+        self.channel_pool_conv3 = nn.Conv2d(in_channels = self.plance, out_channels = 1, kernel_size = 1, stride = 1)
 
-        self.cat_fc = nn.Linear(in_features = 4096, out_features = 2048)
+        self.cat_fc = nn.Linear(in_features = self.in_planes * 2, out_features = self.in_planes)
 
-        self.appearance_bottleneck = nn.BatchNorm1d(2048)
-        self.appearance_classifier = nn.Linear(2048, self.num_classes, bias=False)
+        self.appearance_bottleneck = nn.BatchNorm1d(self.in_planes)
+        self.appearance_classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
         self.appearance_bottleneck.bias.requires_grad_(False)
 
-        self.temporal_bottleneck = nn.BatchNorm1d(2048)
-        self.temporal_classifier = nn.Linear(in_features=2048, out_features=self.num_classes, bias=False)
+        self.temporal_bottleneck = nn.BatchNorm1d(self.in_planes)
+        self.temporal_classifier = nn.Linear(in_features=self.in_planes, out_features=self.num_classes, bias=False)
         self.temporal_bottleneck.bias.requires_grad_(False)
 
-        self.sum_bottleneck = nn.BatchNorm1d(2048)
-        self.sum_classifier = nn.Linear(2048, self.num_classes, bias=False)
+        self.sum_bottleneck = nn.BatchNorm1d(self.in_planes)
+        self.sum_classifier = nn.Linear(self.in_planes, self.num_classes, bias=False)
         self.sum_bottleneck.bias.requires_grad_(False)
 
         self.compact_conv_1.apply(weights_init_kaiming)
@@ -146,48 +148,6 @@ class app_tem(nn.Module):
         refine_feature = refine_feature.cuda()  #(32,3,2048)
         norm_score = torch.norm(refine_feature, 2, dim=2).unsqueeze(2)
         refine_feature = refine_feature / norm_score
-        #L1 normalize
-        #norm_score = torch.norm(refine_feature, 1, dim=2).unsqueeze(2)
-        #refine_feature = refine_feature / norm_score
-
-        #或者把度量的距离改成欧式距离
-        # cosine_sum_similar = 0
-        # for i in range(t - 1):
-        #     for j in range(i + 1, t - 1):
-        #         cosine_similar_score = torch.cosine_similarity(refine_feature[:, i, :], refine_feature[:, j, :])
-                #归一化处理：cosine_similar_score = torch.div(cosine_similar_score + 1, 2)
-                # cosine_similar_score = torch.sigmoid(cosine_similar_score)
-                # cosine_similar_score = -torch.log(cosine_similar_score)
-                # cosine_sum_similar = cosine_sum_similar + cosine_similar_score
-
-        return refine_feature
-
-    def global_KNN_cosine(self,feat_vec):  # 这个要要验证一下，cosine_similarity的输出是不是可以跨维度的。   r()eply:cosine_similarity是可以跨维度，或者说可以保持维度
-        b, t, _ = feat_vec.size()
-        refine_feature = torch.zeros(b, t - 1, feat_vec.size(2))
-        feat_vec_avg = torch.mean(feat_vec, 1)
-        similar_matrix = torch.zeros(b, t)
-
-        for i in range(t):
-            similar_score = torch.cosine_similarity(feat_vec_avg, feat_vec[:, i, :])
-            similar_matrix[:, i] = similar_score
-
-        remove_id = torch.argmin(similar_matrix, 1)
-
-        for i in range(b):
-            refine_feature[i] = feat_vec[i, torch.arange(t) != remove_id[i], :]  # b*t-1*1024
-
-        refine_feature = refine_feature.cuda()  # (32,3,2048)
-        norm_score = torch.norm(refine_feature, 2, dim=2).unsqueeze(2)
-        refine_feature = refine_feature / norm_score
-
-        # cosine_sum_similar = 0
-        # for i in range(t - 1):
-        #     for j in range(i + 1, t - 1):
-        #         cosine_similar_score = torch.cosine_similarity(refine_feature[:, i, :], refine_feature[:, j, :])
-        #         cosine_similar_score = torch.sigmoid(cosine_similar_score)         # 成比例压缩到(0,1)区间
-        #         cosine_similar_score = - torch.log(cosine_similar_score)
-        #         cosine_sum_similar = cosine_sum_similar + cosine_similar_score
 
         return refine_feature
 
@@ -250,7 +210,6 @@ class app_tem(nn.Module):
         return credible_feature, appearance_loss
 
     def temporal_block(self, gap_feature_map):
-        # short_cut = gap_feature_map
 
         gap_feature_map = self.compact_conv_1(gap_feature_map)
         gap_feature_map = self.bn1(gap_feature_map)
@@ -259,7 +218,7 @@ class app_tem(nn.Module):
         gap_feature_map = self.bn2(gap_feature_map)
 
         gap_feature_map = self.compact_conv_3(gap_feature_map)
-        gap_feature_map = torch.relu(self.bn3(gap_feature_map))
+        gap_feature_map = self.relu(self.bn3(gap_feature_map))
 
         return gap_feature_map
 
@@ -272,25 +231,25 @@ class app_tem(nn.Module):
 
         #temporal_pool block
         tem_gap_feature = self.temporal_pool_conv1(tem_gap_feature)
-        tem_gap_feature = torch.relu(tem_gap_feature)
+        tem_gap_feature = self.relu(tem_gap_feature)
 
         tem_gap_feature = self.temporal_pool_conv2(tem_gap_feature)
-        tem_gap_feature = torch.relu(tem_gap_feature)
+        tem_gap_feature = self.relu(tem_gap_feature)
 
         tem_gap_feature = self.temporal_pool_conv3(tem_gap_feature)
-        tem_gap_feature = torch.relu(tem_gap_feature)              #(32x2048, 1, 16, 8)
+        tem_gap_feature = self.relu(tem_gap_feature)              #(32x2048, 1, 16, 8)
         tem_gap_feature = tem_gap_feature.view(b, c, -1, w, h)
 
 
         #channel_pool block
         channel_gap_feature = self.channel_pool_conv1(channel_gap_feature)
-        channel_gap_feature = torch.relu(channel_gap_feature)
+        channel_gap_feature = self.relu(channel_gap_feature)
 
         channel_gap_feature = self.channle_pool_conv2(channel_gap_feature)
-        channel_gap_feature = torch.relu(channel_gap_feature)
+        channel_gap_feature = self.relu(channel_gap_feature)
 
         channel_gap_feature = self.channel_pool_conv3(channel_gap_feature)
-        channel_gap_feature = torch.relu(channel_gap_feature)     #(32x3, 1, 16, 8)
+        channel_gap_feature = self.relu(channel_gap_feature)     #(32x3, 1, 16, 8)
         channel_gap_feature = channel_gap_feature.view(b, t, -1, w, h).permute(0, 2, 1, 3, 4)
 
         gap_feature_map = torch.mul(tem_gap_feature, channel_gap_feature)  #(32, 3, 2048, 16, 8)
