@@ -79,16 +79,12 @@ class app_tem(nn.Module):
         self.compact_conv_3 = nn.Conv2d(in_channels = self.plance, out_channels = self.in_planes, kernel_size = 1, stride = 1)
         self.bn3 = nn.BatchNorm2d(self.plance * 4)
 
-        #temporal pool
-        self.temporal_pool_conv1 = nn.Conv2d(in_channels = seq_len - 1, out_channels = seq_len - 1, kernel_size = 1)
-        self.temporal_pool_conv2 = nn.Conv2d(in_channels = seq_len - 1, out_channels = seq_len - 1, kernel_size = 3, padding = 1)    #Other try is using padding = 0
-        self.temporal_pool_conv3 = nn.Conv2d(in_channels = seq_len - 1, out_channels = 1, kernel_size = 1)
+        #3D conv
+        self.conv3d_1 = nn.Conv3d(in_channels = self.in_planes, out_channels= self.plance, kernel_size=1)
+        self.conv3d_2 = nn.Conv3d(in_channels = self.plance, out_channels = self.plance, kernel_size = 3, padding = 1)
+        self.conv3d_3 = nn.Conv3d(in_channels = self.plance, out_channels = self.in_planes,  kernel_size = 1)
 
-        #channel pool
-        self.channel_pool_conv1 = nn.Conv2d(in_channels = self.in_planes, out_channels = self.plance, kernel_size = 1, stride = 1)
-        self.channle_pool_conv2 = nn.Conv2d(in_channels = self.plance, out_channels = self.plance, kernel_size = 3, stride = 1, padding = 1)     # Other try is using padding = 0
-        self.channel_pool_conv3 = nn.Conv2d(in_channels = self.plance, out_channels = 1, kernel_size = 1, stride = 1)
-
+        #fusion temporal and appearance feature
         self.cat_fc = nn.Linear(in_features = self.in_planes * 2, out_features = self.in_planes)
 
         self.appearance_bottleneck = nn.BatchNorm1d(self.in_planes)
@@ -110,13 +106,9 @@ class app_tem(nn.Module):
         self.compact_conv_3.apply(weights_init_kaiming)
         self.bn3.apply(weights_init_kaiming)
 
-        self.channel_pool_conv3.apply(weights_init_kaiming)
-        self.channle_pool_conv2.apply(weights_init_kaiming)
-        self.channel_pool_conv1.apply(weights_init_kaiming)
-
-        self.temporal_pool_conv3.apply(weights_init_kaiming)
-        self.temporal_pool_conv2.apply(weights_init_kaiming)
-        self.temporal_pool_conv1.apply(weights_init_kaiming)
+        self.conv3d_1.apply(weights_init_kaiming)
+        self.conv3d_2.apply(weights_init_kaiming)
+        self.conv3d_3.apply(weights_init_kaiming)
 
         self.appearance_bottleneck.apply(weights_init_kaiming)
         self.temporal_classifier.apply(weight_init_classifier)
@@ -222,39 +214,17 @@ class app_tem(nn.Module):
 
         return gap_feature_map
 
-    def temporal_pool(self, gap_feature_map):
-        b, t, c, w, h = gap_feature_map.size()
-        tem_gap_feature = gap_feature_map.permute(0, 2, 1, 3, 4)
-        tem_gap_feature = tem_gap_feature.reshape(b * c, t, w, h)
-        channel_gap_feature = gap_feature_map.view(b * t, c, w, h)
+    def temporal_extraction(self, gap_feature_map):
+        gap_feature_map = self.conv3d_1(gap_feature_map)
+        gap_feature_map = self.relu(gap_feature_map)
 
+        gap_feature_map = self.conv3d_2(gap_feature_map)
+        gap_feature_map = self.relu(gap_feature_map)
 
-        #temporal_pool block
-        tem_gap_feature = self.temporal_pool_conv1(tem_gap_feature)
-        tem_gap_feature = self.relu(tem_gap_feature)
+        gap_feature_map = self.conv3d_3(gap_feature_map)
+        gap_feature_map = self.relu(gap_feature_map)
 
-        tem_gap_feature = self.temporal_pool_conv2(tem_gap_feature)
-        tem_gap_feature = self.relu(tem_gap_feature)
-
-        tem_gap_feature = self.temporal_pool_conv3(tem_gap_feature)
-        tem_gap_feature = self.relu(tem_gap_feature)              #(32x2048, 1, 16, 8)
-        tem_gap_feature = tem_gap_feature.view(b, c, -1, w, h)
-
-
-        #channel_pool block
-        channel_gap_feature = self.channel_pool_conv1(channel_gap_feature)
-        channel_gap_feature = self.relu(channel_gap_feature)
-
-        channel_gap_feature = self.channle_pool_conv2(channel_gap_feature)
-        channel_gap_feature = self.relu(channel_gap_feature)
-
-        channel_gap_feature = self.channel_pool_conv3(channel_gap_feature)
-        channel_gap_feature = self.relu(channel_gap_feature)     #(32x3, 1, 16, 8)
-        channel_gap_feature = channel_gap_feature.view(b, t, -1, w, h).permute(0, 2, 1, 3, 4)
-
-        gap_feature_map = torch.mul(tem_gap_feature, channel_gap_feature)  #(32, 3, 2048, 16, 8)
-        gap_feature_vector = self.feature_map_pool(gap_feature_map)  #(32x3, 2048)
-
+        gap_feature_vector = self.feature_map_pool(gap_feature_map)
         return gap_feature_vector
 
     def temporal(self, feat_map):
@@ -267,12 +237,12 @@ class app_tem(nn.Module):
             gap_feat_map.append(gap_feat)
 
         gap_feat_map = torch.stack(gap_feat_map, 1)
-        gap_feat_map = gap_feat_map ** 2                                         #this way can be changed
+        gap_feat_map = gap_feat_map ** 2                                                  #this way can be changed
         gap_feat_map = gap_feat_map.view(b * (t - 1), c, h, w)
-        gap_feat_map = self.temporal_block(gap_feat_map)                         #(96, 2048, 16,  8)
+        gap_feat_map = self.temporal_block(gap_feat_map)                                  #(96, 2048, 16,  8)
 
-        gap_feat_map = gap_feat_map.view(b, t - 1, c, h, w)                      #(32, 3, 2048, 16, 8)
-        temporal_feat_vector = self.temporal_pool(gap_feat_map).view(b, c)       #(32, 3, 2048)
+        gap_feat_map = gap_feat_map.view(b, t - 1, c, h, w).permute(0, 2, 1, 3, 4)        #(32, 3, 2048, 16, 8)
+        temporal_feat_vector = self.temporal_extraction(gap_feat_map).view(b, c)                #(32, 3, 2048)
 
         return temporal_feat_vector
 

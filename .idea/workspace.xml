@@ -7,10 +7,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e3ebfe62-ee11-4bac-8afc-ae17821c0bea" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/not_so_strong_baseline_for_video_based_person_reID-master.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/not_so_strong_baseline_for_video_based_person_reID-master.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/app_tem.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/app_tem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/resnet50-19c8e357.pth" beforeDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -49,19 +51,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
-  </component>
-  <component name="RunManager" selected="Python.main_baseline">
+  <component name="RunManager" selected="Python.app_tem">
     <configuration name="app_refine" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="not_so_strong_baseline_for_video_based_person_reID-master" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -174,8 +164,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main_baseline" />
         <item itemvalue="Python.app_tem" />
+        <item itemvalue="Python.main_baseline" />
         <item itemvalue="Python.app_refine" />
         <item itemvalue="Python.basic_just_resnet" />
         <item itemvalue="Python.losses" />
@@ -241,17 +231,38 @@
     </option>
   </component>
   <component name="WindowStateProjectService">
-    <state x="549" y="167" key="FileChooserDialogImpl" timestamp="1585627211489">
-      <screen x="0" y="0" width="1536" height="824" />
+    <state x="-1234" y="214" key="FileChooserDialogImpl" timestamp="1590477490598">
+      <screen x="-1920" y="3" width="1920" height="1040" />
     </state>
     <state x="549" y="167" key="FileChooserDialogImpl/0.0.1536.824/1920.0.1920.1040@0.0.1536.824" timestamp="1585627211489" />
+    <state x="-1234" y="214" key="FileChooserDialogImpl/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590477490598" />
+    <state width="1899" height="282" key="GridCell.Tab.0.bottom" timestamp="1590504574221">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1899" height="282" key="GridCell.Tab.0.bottom/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590478727157" />
+    <state width="1899" height="282" key="GridCell.Tab.0.bottom/0.0.1920.1040/-1920.3.1920.1040@0.0.1920.1040" timestamp="1590504574221" />
+    <state width="1899" height="282" key="GridCell.Tab.0.center" timestamp="1590504574221">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1899" height="282" key="GridCell.Tab.0.center/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590478727157" />
+    <state width="1899" height="282" key="GridCell.Tab.0.center/0.0.1920.1040/-1920.3.1920.1040@0.0.1920.1040" timestamp="1590504574221" />
+    <state width="1899" height="282" key="GridCell.Tab.0.left" timestamp="1590504574221">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1899" height="282" key="GridCell.Tab.0.left/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590478727156" />
+    <state width="1899" height="282" key="GridCell.Tab.0.left/0.0.1920.1040/-1920.3.1920.1040@0.0.1920.1040" timestamp="1590504574221" />
+    <state width="1899" height="282" key="GridCell.Tab.0.right" timestamp="1590504574221">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1899" height="282" key="GridCell.Tab.0.right/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590478727157" />
+    <state width="1899" height="282" key="GridCell.Tab.0.right/0.0.1920.1040/-1920.3.1920.1040@0.0.1920.1040" timestamp="1590504574221" />
+    <state x="-1459" y="165" key="SettingsEditor" timestamp="1590477499685">
+      <screen x="-1920" y="3" width="1920" height="1040" />
+    </state>
+    <state x="-1459" y="165" key="SettingsEditor/0.0.1920.1040/-1920.3.1920.1040@-1920.3.1920.1040" timestamp="1590477499685" />
     <state x="454" y="236" key="com.intellij.ide.util.TipDialog" timestamp="1585522183815">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="454" y="236" key="com.intellij.ide.util.TipDialog/0.0.1536.824/1920.0.1920.1040@0.0.1536.824" timestamp="1585522183815" />
-  </component>
-  <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/not_so_strong_baseline_for_video_based_person_reID_master$main_baseline.coverage" NAME="main_baseline Coverage Results" MODIFIED="1590464669852" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/not_so_strong_baseline_for_video_based_person_reID_master$app_tem.coverage" NAME="app_tem Coverage Results" MODIFIED="1590029842862" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/models" />
   </component>
 </project>
